@@ -8,6 +8,9 @@ Before starting this service, make sure the [Deskconn Router](https://github.com
 
 ## Setup Instructions
 
+The service uses `xconn-core[framework]==0.1.6` from PyPI. Supported Linux and
+macOS hosts install prebuilt wheels without Rust or private Git credentials.
+
 1. Install dependencies:
 
 ```shell
@@ -54,7 +57,7 @@ Set these values in your `.env` for Docker (both stacks share the `deskconn` doc
 
 ```dotenv
 DESKCONN_POSTGRES_HOST=deskconn-account-service-postgres
-ROUTER_URL=rss://deskconn-router:8084/rs
+ROUTER_URL=rs://deskconn-router:8084/rs
 ```
 
 > **Note:** `make db` runs migrations from the host, so keep `DESKCONN_POSTGRES_HOST=localhost` while running it.
