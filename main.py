@@ -1,5 +1,5 @@
-from xconn_core import App
-from xconn_core.app import ExecutionMode
+from xconn import App
+from xconn.app import ExecutionMode
 
 from deskconn.api.auth import component as auth_component
 from deskconn.api.user import component as user_component
@@ -24,8 +24,8 @@ def run():
     import os
 
     from dotenv import load_dotenv
-    from xconn_core import connect
-    from xconn_core._client.types import ClientConfig
+    from xconn import connect
+    from xconn._client.types import ClientConfig
 
     load_dotenv()
     connect(

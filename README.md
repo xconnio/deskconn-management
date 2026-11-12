@@ -8,7 +8,7 @@ Before starting this service, make sure the [Deskconn Router](https://github.com
 
 ## Setup Instructions
 
-The service uses `xconn-core[framework]==0.1.6` from PyPI. Supported Linux and
+The service uses `xconn[framework]==0.6.0` from PyPI. Supported Linux and
 macOS hosts install prebuilt wheels without Rust or private Git credentials.
 
 1. Install dependencies:
