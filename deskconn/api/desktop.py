@@ -1,9 +1,9 @@
 import uuid
 
-from xconn_core import Component
-from xconn_core.exception import ApplicationError
+from xconn import Component
+from xconn.exception import ApplicationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from xconn_core.types import Depends, CallDetails
+from xconn.types import Depends, CallDetails
 
 from deskconn import schemas, uris, models, helpers
 from deskconn.database.database import get_database

@@ -8,9 +8,9 @@ from datetime import datetime, timezone, timedelta
 
 import resend
 from dotenv import load_dotenv
-from xconn_core.exception import ApplicationError
-from xconn_core.async_client import AsyncSession
-from xconn_core.messages import call as protocol_call
+from xconn.exception import ApplicationError
+from xconn.async_client import AsyncSession
+from xconn.messages import call as protocol_call
 
 from deskconn import uris
 

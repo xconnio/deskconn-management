@@ -10,11 +10,11 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
-from xconn_core._client.async_ import _setup, register_async
-from xconn_core.exception import ApplicationError
-from xconn_core.quic import AsyncQUICConnection
-from xconn_core.requests import RegisterRequest
-from xconn_core.types import Invocation
+from xconn._client.async_ import _setup, register_async
+from xconn.exception import ApplicationError
+from xconn.quic import AsyncQUICConnection
+from xconn.requests import RegisterRequest
+from xconn.types import Invocation
 
 from main import app
 from deskconn import helpers, uris
@@ -121,14 +121,14 @@ async def test_core_router_registration_rpc_and_publication():
 
 
 def test_service_launcher_uses_cryptosign(monkeypatch):
-    import xconn_core
+    import xconn
     from main import run
 
     monkeypatch.setenv("ROUTER_URL", "ws://127.0.0.1:1/ws")
     monkeypatch.setenv("DESKCONN_ACCOUNT_AUTHID", "test-account-service")
     monkeypatch.setenv("DESKCONN_ACCOUNT_PRIVATE_KEY", "01" * 32)
     captured = []
-    monkeypatch.setattr(xconn_core, "connect", lambda app, config: captured.append((app, config)))
+    monkeypatch.setattr(xconn, "connect", lambda app, config: captured.append((app, config)))
     run()
 
     target, config = captured[0]
