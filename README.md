@@ -1,69 +1,72 @@
-# Deskconn Account Service
+# DeskConn Management
 
-Deskconn Account Service manages user accounts, devices, and desktop information.
+Identity, machine enrollment, and access management for
+[DeskConn](https://github.com/xconnio/deskconn).
 
-## Getting Started
+The service manages accounts, verification, client credentials, machine sharing,
+and invitations. Built with Python and [XConn](https://github.com/xconnio/xconn),
+it exposes RPCs through the DeskConn Hub and stores application data in PostgreSQL.
 
-Before starting this service, make sure the [Deskconn Router](https://github.com/xconnio/deskconn-router) is running.
+## Responsibilities
 
-## Setup Instructions
+- **Accounts:** registration, email verification, login verification, and password reset.
+- **Credentials:** register and remove client devices and public-key principals.
+- **Machines:** enroll, list, update, and detach machines.
+- **Access:** manage machine roles, sharing, and invitations.
+- **Hub integration:** answer authentication and access checks, manage machine
+  realms, and publish credential and access updates.
 
-The service uses `xconn[framework]==0.6.0` from PyPI. Supported Linux and
-macOS hosts install prebuilt wheels without Rust or private Git credentials.
+## How it fits
 
-1. Install dependencies:
+```mermaid
+flowchart LR
+    C["CLI / Web / Mobile"]
+    H["DeskConn Hub<br/>Relay router"]
+    M["Management service"]
+    DB[("PostgreSQL")]
 
-```shell
+    C <--> H
+    H <-->|"RPCs and events"| M
+    M <--> DB
+```
+
+Management connects to the Hub's shared `io.xconn.deskconn` realm using
+CryptoSign. The Hub routes application traffic and enforces its connection and
+procedure permissions; Management provides account and access data.
+
+## Local development
+
+Use Python 3.12 or newer, uv, Make, and Docker Compose for the local database.
+Start with a working [DeskConn Hub](https://github.com/xconnio/deskconn-hub)
+deployment and matching service credentials.
+
+```sh
 make setup
 ```
 
-2. Configure environment variables:
+This creates `.venv`, installs the service and test dependencies, and copies
+`example.env` to `.env`. Edit `.env` for the database, Hub connection, and email
+settings before continuing:
 
-Create or edit the `.env` file with appropriate values:
-
-```dotenv
-ACCOUNT_SERVICE_DB_USER=account-service
-ACCOUNT_SERVICE_DB_PASSWORD=account-service-password
-ROUTER_DB_USER=router
-ROUTER_DB_PASSWORD=router-password
-DESKCONN_POSTGRES_HOST=localhost
-DESKCONN_DATABASE_URL=postgresql+asyncpg://${ACCOUNT_SERVICE_DB_USER}:${ACCOUNT_SERVICE_DB_PASSWORD}@${DESKCONN_POSTGRES_HOST}:5432/deskconn_account_service
-DESKCONN_ACCOUNT_AUTHID=deskconn-account-service
-DESKCONN_ACCOUNT_PRIVATE_KEY=db3f6235591a98b704f87f46f66d74645864479f32446a32d95c4826a6791b0a
-RESEND_API_KEY=your-resend-api-key
-ROUTER_URL=ws://localhost:8080/ws
-```
-
-> **Debug mode:** Set `X_DEBUG=true` to skip email sending and print OTPs to stdout instead. When enabled, `RESEND_API_KEY` is not required. Useful for local development.
-
-
-3. Start Postgres and apply migrations:
-
-```shell
+```sh
 make db
-```
-
-## Running the Service
-
-```shell
 make run
 ```
 
-## Running with Docker
+`make db` starts PostgreSQL, initializes the database roles, and applies Alembic
+migrations. The service uses the published XConn Python package; supported wheels
+include the native runtime, so normal installation needs neither Rust nor a
+sibling XConn checkout.
 
-Before running with Docker, make sure [Deskconn Router](https://github.com/xconnio/deskconn-router) is already running via its own `docker-compose.yml`.
+See [configuration and deployment](docs/deployment.md) for connection URLs,
+CryptoSign credentials, email settings, Docker, and migrations.
 
-Set these values in your `.env` for Docker (both stacks share the `deskconn` docker network):
+## Checks
 
-```dotenv
-DESKCONN_POSTGRES_HOST=deskconn-account-service-postgres
-ROUTER_URL=rs://deskconn-router:8084/rs
+```sh
+make lint
+make test
 ```
 
-> **Note:** `make db` runs migrations from the host, so keep `DESKCONN_POSTGRES_HOST=localhost` while running it.
-
-Then start the service:
-
-```shell
-make run-docker
-```
+`make format` applies formatting. See [testing](docs/testing.md) for test scope
+and the optional real-router integration test.
