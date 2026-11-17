@@ -84,7 +84,7 @@ for service-to-service addresses:
 
 ```dotenv
 DESKCONN_POSTGRES_HOST=deskconn-account-service-postgres
-ROUTER_URL=rs://deskconn-router:8084/rs
+ROUTER_URL=rs://deskconn-hub:8084/rs
 ```
 
 Start the service:
