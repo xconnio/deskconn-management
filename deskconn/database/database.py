@@ -10,7 +10,7 @@ DATABASE_URL = os.getenv("DESKCONN_DATABASE_URL", None)
 if DATABASE_URL is None or DATABASE_URL == "":
     raise ValueError("'DESKCONN_DATABASE_URL' missing in environment variables.")
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, autoflush=False, autocommit=False)
 
