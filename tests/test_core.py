@@ -48,8 +48,8 @@ async def test_all_account_procedures_register_with_core():
         await register_async(session, uri, handler)
 
     assert session.handlers.keys() == app.procedures.keys()
-    assert "io.xconn.deskconn.account.login.verify" in session.handlers
-    assert "io.xconn.deskconn.desktop.attach" in session.handlers
+    assert "com.deskconn.account.login.verify" in session.handlers
+    assert "com.deskconn.desktop.attach" in session.handlers
 
 
 @pytest.mark.asyncio
@@ -60,7 +60,7 @@ async def test_login_invocation_resolves_dependencies_and_preserves_errors(monke
     async def dependency():
         yield database
 
-    uri = "io.xconn.deskconn.account.login"
+    uri = "com.deskconn.account.login"
     handler = auth.component.procedures[uri]
     default = inspect.signature(handler).parameters["db"].default
     monkeypatch.setattr(default, "dependency", dependency)
@@ -151,7 +151,7 @@ async def test_account_get_preserves_caller_identity_and_response(monkeypatch):
     from uuid import UUID
     from deskconn.api import user
 
-    uri = "io.xconn.deskconn.account.get"
+    uri = "com.deskconn.account.get"
     handler = user.component.procedures[uri]
     database = object()
 

@@ -14,7 +14,7 @@ from deskconn.api.principal import create_and_notify_principal
 component = Component()
 
 
-@component.register("io.xconn.deskconn.account.cra.verify", response_model=schemas.CRAUser)
+@component.register("com.deskconn.account.cra.verify", response_model=schemas.CRAUser)
 async def verify_cra(authid: str, realm: str, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, authid)
     if db_user is None:
@@ -28,7 +28,7 @@ async def verify_cra(authid: str, realm: str, db: AsyncSession = Depends(get_dat
     return db_user
 
 
-@component.register("io.xconn.deskconn.account.login")
+@component.register("com.deskconn.account.login")
 async def login(email: str, details: CallDetails, db: AsyncSession = Depends(get_database)):
     ensure_login_email_matches_caller(details, email)
     db_user = await user_backend.get_user_by_email(db, email, for_update=True)
@@ -41,7 +41,7 @@ async def login(email: str, details: CallDetails, db: AsyncSession = Depends(get
     await user_backend.generate_and_save_otp(db, db_user, helpers.OTP_PURPOSE_LOGIN)
 
 
-@component.register("io.xconn.deskconn.account.login.verify", response_model=schemas.PrincipalGet)
+@component.register("com.deskconn.account.login.verify", response_model=schemas.PrincipalGet)
 async def verify_login(rs: schemas.UserVerify, details: CallDetails, db: AsyncSession = Depends(get_database)):
     ensure_login_email_matches_caller(details, rs.email)
     db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
@@ -53,7 +53,7 @@ async def verify_login(rs: schemas.UserVerify, details: CallDetails, db: AsyncSe
     return await create_and_notify_principal(db, schemas.PrincipalCreate(public_key=rs.public_key), db_user)
 
 
-@component.register("io.xconn.deskconn.account.cryptosign.verify")
+@component.register("com.deskconn.account.cryptosign.verify")
 async def verify_cryptosign(authid: str, public_key: str, realm: str, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, authid)
     if db_user is not None:
@@ -89,7 +89,7 @@ async def verify_cryptosign(authid: str, public_key: str, realm: str, db: AsyncS
     return Result(args=[{"authid": authid, "authrole": authrole}])
 
 
-@component.register("io.xconn.deskconn.desktop.access")
+@component.register("com.deskconn.desktop.access")
 async def desktop_access(authid: str, desktop_authid: str, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, authid)
     if db_user is None:

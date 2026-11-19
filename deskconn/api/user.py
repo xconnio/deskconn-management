@@ -12,7 +12,7 @@ from deskconn.api.principal import create_and_notify_principal
 component = Component()
 
 
-@component.register("io.xconn.deskconn.account.create", response_model=schemas.UserGet)
+@component.register("com.deskconn.account.create", response_model=schemas.UserGet)
 async def create(rs: schemas.UserCreate, db: AsyncSession = Depends(get_database)):
     if await user_backend.get_user_by_email(db, rs.email) is not None:
         raise ApplicationError(uris.ERROR_USER_EXISTS, f"User with email '{rs.email}' already exists")
@@ -20,7 +20,7 @@ async def create(rs: schemas.UserCreate, db: AsyncSession = Depends(get_database
     return await user_backend.create_user(db, rs)
 
 
-@component.register("io.xconn.deskconn.account.get", response_model=schemas.UserGet)
+@component.register("com.deskconn.account.get", response_model=schemas.UserGet)
 async def get(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -29,7 +29,7 @@ async def get(details: CallDetails, db: AsyncSession = Depends(get_database)):
     return db_user
 
 
-@component.register("io.xconn.deskconn.account.update", response_model=schemas.UserGet)
+@component.register("com.deskconn.account.update", response_model=schemas.UserGet)
 async def update(rs: schemas.UserUpdate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -42,7 +42,7 @@ async def update(rs: schemas.UserUpdate, details: CallDetails, db: AsyncSession 
     return await user_backend.update_user(db, db_user, data)
 
 
-@component.register("io.xconn.deskconn.account.delete")
+@component.register("com.deskconn.account.delete")
 async def delete(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -63,7 +63,7 @@ async def delete(details: CallDetails, db: AsyncSession = Depends(get_database))
         )
 
 
-@component.register("io.xconn.deskconn.account.verify", response_model=schemas.PrincipalGet)
+@component.register("com.deskconn.account.verify", response_model=schemas.PrincipalGet)
 async def account_verification(rs: schemas.UserVerify, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
     if db_user is None:
@@ -81,7 +81,7 @@ async def account_verification(rs: schemas.UserVerify, db: AsyncSession = Depend
     return principal
 
 
-@component.register("io.xconn.deskconn.account.otp.resend")
+@component.register("com.deskconn.account.otp.resend")
 async def otp_resend(email: str, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, email, for_update=True)
     if db_user is None:
@@ -90,7 +90,7 @@ async def otp_resend(email: str, db: AsyncSession = Depends(get_database)):
     await user_backend.generate_and_save_otp(db, db_user, helpers.OTP_PURPOSE_VERIFY)
 
 
-@component.register("io.xconn.deskconn.account.password.forget")
+@component.register("com.deskconn.account.password.forget")
 async def forget_password(email: str, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, email, for_update=True)
     if db_user is None:
@@ -99,7 +99,7 @@ async def forget_password(email: str, db: AsyncSession = Depends(get_database)):
     await user_backend.generate_and_save_otp(db, db_user, helpers.OTP_PURPOSE_PASSWORD_RESET)
 
 
-@component.register("io.xconn.deskconn.account.password.reset")
+@component.register("com.deskconn.account.password.reset")
 async def reset_password(rs: schemas.PasswordReset, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
     if db_user is None:

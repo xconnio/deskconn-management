@@ -35,7 +35,7 @@ async def create_and_notify_principal(
     return principal
 
 
-@component.register("io.xconn.deskconn.account.principal.list", response_model=schemas.PrincipalGet)
+@component.register("com.deskconn.account.principal.list", response_model=schemas.PrincipalGet)
 async def list_principal(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -44,7 +44,7 @@ async def list_principal(details: CallDetails, db: AsyncSession = Depends(get_da
     return await principal_backend.list_principals(db, db_user)
 
 
-@component.register("io.xconn.deskconn.account.principal.rotate", response_model=schemas.PrincipalGet)
+@component.register("com.deskconn.account.principal.rotate", response_model=schemas.PrincipalGet)
 async def rotate(rs: schemas.PrincipalRotate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -75,7 +75,7 @@ async def rotate(rs: schemas.PrincipalRotate, details: CallDetails, db: AsyncSes
     return new_principal
 
 
-@component.register("io.xconn.deskconn.account.principal.delete")
+@component.register("com.deskconn.account.principal.delete")
 async def delete(rs: schemas.PrincipalCreate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
