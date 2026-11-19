@@ -65,7 +65,7 @@ async def delete(details: CallDetails, db: AsyncSession = Depends(get_database))
 
 @component.register("io.xconn.deskconn.account.verify", response_model=schemas.PrincipalGet)
 async def account_verification(rs: schemas.UserVerify, db: AsyncSession = Depends(get_database)):
-    db_user = await user_backend.get_user_by_email(db, rs.email)
+    db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{rs.email}' not found")
 
@@ -76,8 +76,6 @@ async def account_verification(rs: schemas.UserVerify, db: AsyncSession = Depend
 
     principal = await create_and_notify_principal(db, schemas.PrincipalCreate(public_key=rs.public_key), db_user)
 
-    db_user.otp_send_count = 0
-    db_user.otp_window_started_at = None
     await user_backend.verify_user(db, db_user)
 
     return principal
@@ -85,7 +83,7 @@ async def account_verification(rs: schemas.UserVerify, db: AsyncSession = Depend
 
 @component.register("io.xconn.deskconn.account.otp.resend")
 async def otp_resend(email: str, db: AsyncSession = Depends(get_database)):
-    db_user = await user_backend.get_user_by_email(db, email)
+    db_user = await user_backend.get_user_by_email(db, email, for_update=True)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{email}' not found")
 
@@ -94,7 +92,7 @@ async def otp_resend(email: str, db: AsyncSession = Depends(get_database)):
 
 @component.register("io.xconn.deskconn.account.password.forget")
 async def forget_password(email: str, db: AsyncSession = Depends(get_database)):
-    db_user = await user_backend.get_user_by_email(db, email)
+    db_user = await user_backend.get_user_by_email(db, email, for_update=True)
     if db_user is None:
         return None
 
@@ -103,14 +101,12 @@ async def forget_password(email: str, db: AsyncSession = Depends(get_database)):
 
 @component.register("io.xconn.deskconn.account.password.reset")
 async def reset_password(rs: schemas.PasswordReset, db: AsyncSession = Depends(get_database)):
-    db_user = await user_backend.get_user_by_email(db, rs.email)
+    db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{rs.email}' not found")
 
     await user_backend.verify_otp(db, db_user, rs.code, helpers.OTP_PURPOSE_PASSWORD_RESET)
 
-    db_user.otp_send_count = 0
-    db_user.otp_window_started_at = None
     await user_backend.reset_password(db, db_user, rs.password)
 
     if not db_user.is_verified:

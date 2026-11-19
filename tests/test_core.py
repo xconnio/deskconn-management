@@ -73,7 +73,7 @@ async def test_login_invocation_resolves_dependencies_and_preserves_errors(monke
     await register_async(session, uri, handler)
 
     await session.handlers[uri](Invocation(["test@example.com"], {}, {"caller_authid": "test@example.com"}))
-    lookup.assert_awaited_once_with(database, "test@example.com")
+    lookup.assert_awaited_once_with(database, "test@example.com", for_update=True)
     otp.assert_awaited_once_with(database, user, helpers.OTP_PURPOSE_LOGIN)
 
     lookup.return_value = None
@@ -187,6 +187,7 @@ async def test_otp_is_consumed_after_successful_verification():
     )
     await user_backend.verify_otp(db, record, "123456", helpers.OTP_PURPOSE_LOGIN)
     assert record.otp_hash is None and record.otp_expires_at is None and record.otp_purpose is None
+    assert record.otp_send_count == 0 and record.otp_window_started_at is None
     db.commit.assert_awaited()
 
     # replaying the same code is rejected
@@ -194,3 +195,20 @@ async def test_otp_is_consumed_after_successful_verification():
     with pytest.raises(ApplicationError) as error:
         await user_backend.verify_otp(db, record, "123456", helpers.OTP_PURPOSE_LOGIN)
     assert error.value.uri == uris.ERROR_USER_OTP_INVALID
+
+
+def test_otp_user_lookup_locks_the_row():
+    from sqlalchemy.dialects import postgresql
+    from deskconn.database.backend import user as user_backend
+
+    captured = []
+
+    class DB:
+        async def execute(self, stmt):
+            captured.append(str(stmt.compile(dialect=postgresql.dialect())))
+            return SimpleNamespace(scalar=lambda: None)
+
+    asyncio.run(user_backend.get_user_by_email(DB(), "a@b.c", for_update=True))
+    asyncio.run(user_backend.get_user_by_email(DB(), "a@b.c"))
+    assert captured[0].endswith("FOR UPDATE")
+    assert "FOR UPDATE" not in captured[1]
