@@ -49,8 +49,12 @@ async def delete_user(db: AsyncSession, db_user: models.User) -> None:
     await db.commit()
 
 
-async def get_user_by_email(db: AsyncSession, email: str) -> models.User | None:
+async def get_user_by_email(db: AsyncSession, email: str, for_update: bool = False) -> models.User | None:
     stmt = select(models.User).where(models.User.email == email)
+    if for_update:
+        # Lock the row until the transaction ends so OTP checks and updates for one
+        # account (cooldown, send cap, attempt cap, consuming the code) run one at a time.
+        stmt = stmt.with_for_update()
     result = await db.execute(stmt)
 
     return result.scalar()
@@ -76,9 +80,6 @@ async def generate_and_save_otp(db: AsyncSession, db_user: models.User, purpose:
                 uris.ERROR_USER_OTP_COOLDOWN, f"Please wait {retry_after}s before requesting another OTP"
             )
 
-    # ponytail: read-modify-write on otp_send_count is not locked, so two concurrent
-    # requests for the same user can both pass the check and exceed the cap by one.
-    # Upgrade to `SELECT ... FOR UPDATE` on db_user if that race becomes worth closing.
     window_started_at = db_user.otp_window_started_at
     if window_started_at is not None and window_started_at.tzinfo is None:
         window_started_at = window_started_at.replace(tzinfo=timezone.utc)
@@ -122,6 +123,8 @@ async def verify_otp(db: AsyncSession, db_user: models.User, code: str, expected
     db_user.otp_expires_at = None
     db_user.otp_purpose = None
     db_user.otp_verify_attempts = 0
+    db_user.otp_send_count = 0
+    db_user.otp_window_started_at = None
     await db.commit()
 
 

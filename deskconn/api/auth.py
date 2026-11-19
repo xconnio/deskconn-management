@@ -31,7 +31,7 @@ async def verify_cra(authid: str, realm: str, db: AsyncSession = Depends(get_dat
 @component.register("io.xconn.deskconn.account.login")
 async def login(email: str, details: CallDetails, db: AsyncSession = Depends(get_database)):
     ensure_login_email_matches_caller(details, email)
-    db_user = await user_backend.get_user_by_email(db, email)
+    db_user = await user_backend.get_user_by_email(db, email, for_update=True)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{email}' not found")
 
@@ -44,14 +44,12 @@ async def login(email: str, details: CallDetails, db: AsyncSession = Depends(get
 @component.register("io.xconn.deskconn.account.login.verify", response_model=schemas.PrincipalGet)
 async def verify_login(rs: schemas.UserVerify, details: CallDetails, db: AsyncSession = Depends(get_database)):
     ensure_login_email_matches_caller(details, rs.email)
-    db_user = await user_backend.get_user_by_email(db, rs.email)
+    db_user = await user_backend.get_user_by_email(db, rs.email, for_update=True)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{rs.email}' not found")
 
     await user_backend.verify_otp(db, db_user, rs.code, helpers.OTP_PURPOSE_LOGIN)
 
-    db_user.otp_send_count = 0
-    db_user.otp_window_started_at = None
     return await create_and_notify_principal(db, schemas.PrincipalCreate(public_key=rs.public_key), db_user)
 
 
