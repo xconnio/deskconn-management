@@ -164,3 +164,26 @@ async def test_account_get_preserves_caller_identity_and_response(monkeypatch):
     result = await session.handlers[uri](Invocation([], {}, {"caller_authid": "test@example.com"}))
     lookup.assert_awaited_once_with(database, "test@example.com")
     assert result.args == [{"email": "test@example.com", "name": "Test User", "id": user_id}]
+
+
+@pytest.mark.asyncio
+async def test_otp_is_consumed_after_successful_verification():
+    from deskconn.database.backend import user as user_backend
+
+    db = SimpleNamespace(commit=AsyncMock())
+    record = SimpleNamespace(
+        id=1,
+        otp_hash=helpers.hash_otp("123456"),
+        otp_expires_at=helpers.otp_expiry_time(),
+        otp_purpose=helpers.OTP_PURPOSE_LOGIN,
+        otp_verify_attempts=0,
+    )
+    await user_backend.verify_otp(db, record, "123456", helpers.OTP_PURPOSE_LOGIN)
+    assert record.otp_hash is None and record.otp_expires_at is None and record.otp_purpose is None
+    db.commit.assert_awaited()
+
+    # replaying the same code is rejected
+    db.execute = AsyncMock(return_value=SimpleNamespace(scalar_one=lambda: 1))
+    with pytest.raises(ApplicationError) as error:
+        await user_backend.verify_otp(db, record, "123456", helpers.OTP_PURPOSE_LOGIN)
+    assert error.value.uri == uris.ERROR_USER_OTP_INVALID

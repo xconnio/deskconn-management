@@ -117,7 +117,12 @@ async def verify_otp(db: AsyncSession, db_user: models.User, code: str, expected
         await db.commit()
         raise ApplicationError(uris.ERROR_USER_OTP_INVALID, "OTP invalid or expired")
 
+    # consume the code: it must not be accepted a second time.
+    db_user.otp_hash = None
+    db_user.otp_expires_at = None
+    db_user.otp_purpose = None
     db_user.otp_verify_attempts = 0
+    await db.commit()
 
 
 async def increment_otp_verify_attempts(db: AsyncSession, db_user: models.User) -> int:
