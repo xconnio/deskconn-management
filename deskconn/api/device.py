@@ -12,7 +12,7 @@ from deskconn.database.backend import desktop as desktop_backend
 component = Component()
 
 
-@component.register("io.xconn.deskconn.device.create", response_model=schemas.DeviceGet)
+@component.register("com.deskconn.device.create", response_model=schemas.DeviceGet)
 async def create(rs: schemas.DeviceCreate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -39,7 +39,7 @@ async def create(rs: schemas.DeviceCreate, details: CallDetails, db: AsyncSessio
     return device
 
 
-@component.register("io.xconn.deskconn.device.key.list", response_model=schemas.DeviceGet)
+@component.register("com.deskconn.device.key.list", response_model=schemas.DeviceGet)
 async def list_public_keys(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -48,7 +48,7 @@ async def list_public_keys(details: CallDetails, db: AsyncSession = Depends(get_
     return await device_backend.get_user_public_keys(db, db_user.id)
 
 
-@component.register("io.xconn.deskconn.device.list", response_model=schemas.DeviceGet)
+@component.register("com.deskconn.device.list", response_model=schemas.DeviceGet)
 async def list_devices(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -57,7 +57,7 @@ async def list_devices(details: CallDetails, db: AsyncSession = Depends(get_data
     return await device_backend.list_user_devices(db, db_user.id)
 
 
-@component.register("io.xconn.deskconn.device.delete")
+@component.register("com.deskconn.device.delete")
 async def delete(device_id: str, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:

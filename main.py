@@ -17,7 +17,7 @@ app.include_component(auth_component)
 app.include_component(device_component)
 app.include_component(desktop_component)
 app.include_component(principal_component)
-app.set_schema_procedure("io.xconn.deskconn.account.schema.get")
+app.set_schema_procedure("com.deskconn.account.schema.get")
 
 
 def run():

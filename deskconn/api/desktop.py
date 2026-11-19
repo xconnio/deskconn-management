@@ -12,11 +12,11 @@ from deskconn.database.backend import desktop as desktop_backend
 
 component = Component()
 
-PROCEDURE_ADD_REALM = "io.xconn.deskconn.realm.add"
-PROCEDURE_REMOVE_REALM = "io.xconn.deskconn.realm.remove"
+PROCEDURE_ADD_REALM = "com.deskconn.realm.add"
+PROCEDURE_REMOVE_REALM = "com.deskconn.realm.remove"
 
 
-@component.register("io.xconn.deskconn.desktop.attach", response_model=schemas.DesktopGet)
+@component.register("com.deskconn.desktop.attach", response_model=schemas.DesktopGet)
 async def attach(rs: schemas.DesktopCreate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -53,7 +53,7 @@ async def attach(rs: schemas.DesktopCreate, details: CallDetails, db: AsyncSessi
     return desktop
 
 
-@component.register("io.xconn.deskconn.desktop.list", response_model=schemas.DesktopWithRoleGet)
+@component.register("com.deskconn.desktop.list", response_model=schemas.DesktopWithRoleGet)
 async def list_desktops(rs: schemas.DesktopList, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -62,7 +62,7 @@ async def list_desktops(rs: schemas.DesktopList, details: CallDetails, db: Async
     return await desktop_backend.get_user_desktops_with_role(db, db_user.id, rs.name)
 
 
-@component.register("io.xconn.deskconn.desktop.update", response_model=schemas.DesktopGet)
+@component.register("com.deskconn.desktop.update", response_model=schemas.DesktopGet)
 async def update(rs: schemas.DesktopUpdate, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -80,7 +80,7 @@ async def update(rs: schemas.DesktopUpdate, details: CallDetails, db: AsyncSessi
     return await desktop_backend.update_desktop(db, db_desktop, data)
 
 
-@component.register("io.xconn.deskconn.desktop.detach")
+@component.register("com.deskconn.desktop.detach")
 async def detach(rs: schemas.DesktopDetach, details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -124,7 +124,7 @@ async def detach(rs: schemas.DesktopDetach, details: CallDetails, db: AsyncSessi
         )
 
 
-@component.register("io.xconn.deskconn.desktop.invitation.user.create", response_model=schemas.DesktopInviteGet)
+@component.register("com.deskconn.desktop.invitation.user.create", response_model=schemas.DesktopInviteGet)
 async def invite_user(
     rs: schemas.DesktopUserInviteCreate, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -165,7 +165,7 @@ async def invite_user(
     return invite
 
 
-@component.register("io.xconn.deskconn.desktop.invitation.inbox.list", response_model=schemas.DesktopInviteInboxGet)
+@component.register("com.deskconn.desktop.invitation.inbox.list", response_model=schemas.DesktopInviteInboxGet)
 async def list_inbox_invitations(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -174,7 +174,7 @@ async def list_inbox_invitations(details: CallDetails, db: AsyncSession = Depend
     return await desktop_backend.list_desktop_invites_inbox(db, db_user)
 
 
-@component.register("io.xconn.deskconn.desktop.invitation.outbox.list", response_model=schemas.DesktopInviteOutboxGet)
+@component.register("com.deskconn.desktop.invitation.outbox.list", response_model=schemas.DesktopInviteOutboxGet)
 async def list_outbox_invitations(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_user = await user_backend.get_user_by_email(db, details.authid)
     if db_user is None:
@@ -183,7 +183,7 @@ async def list_outbox_invitations(details: CallDetails, db: AsyncSession = Depen
     return await desktop_backend.list_desktop_invites_outbox(db, db_user)
 
 
-@component.register("io.xconn.deskconn.desktop.invitation.user.cancel")
+@component.register("com.deskconn.desktop.invitation.user.cancel")
 async def cancel_desktop_invitation(
     rs: schemas.InviteCancel, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -204,7 +204,7 @@ async def cancel_desktop_invitation(
     await desktop_backend.cancel_desktop_invite(db, invite)
 
 
-@component.register("io.xconn.deskconn.desktop.access.user.me", response_model=schemas.DesktopUserAccessGet)
+@component.register("com.deskconn.desktop.access.user.me", response_model=schemas.DesktopUserAccessGet)
 async def get_my_access(
     rs: schemas.DesktopAccessListRequest, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -223,7 +223,7 @@ async def get_my_access(
     return access
 
 
-@component.register("io.xconn.deskconn.desktop.invitation.respond")
+@component.register("com.deskconn.desktop.invitation.respond")
 async def respond_invitation(
     rs: schemas.DesktopInviteRespond, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -248,7 +248,7 @@ async def respond_invitation(
     await desktop_backend.respond_to_desktop_user_invite(db, invite, rs.status)
 
 
-@component.register("io.xconn.deskconn.desktop.access.user.set", response_model=schemas.DesktopUserAccessGet)
+@component.register("com.deskconn.desktop.access.user.set", response_model=schemas.DesktopUserAccessGet)
 async def set_user_access(
     rs: schemas.DesktopUserAccessSet, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -269,7 +269,7 @@ async def set_user_access(
     return await desktop_backend.set_user_access(db, rs.desktop_id, rs.user_id, rs.role)
 
 
-@component.register("io.xconn.deskconn.desktop.access.user.update", response_model=schemas.DesktopUserAccessGet)
+@component.register("com.deskconn.desktop.access.user.update", response_model=schemas.DesktopUserAccessGet)
 async def update_user_access_role(
     rs: schemas.DesktopAccessRoleUpdate, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -291,7 +291,7 @@ async def update_user_access_role(
     return await desktop_backend.update_user_access_role(db, db_access, rs.role)
 
 
-@component.register("io.xconn.deskconn.desktop.access.user.revoke")
+@component.register("com.deskconn.desktop.access.user.revoke")
 async def revoke_user_access(
     rs: schemas.DesktopAccessRevoke, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -313,7 +313,7 @@ async def revoke_user_access(
     await desktop_backend.revoke_user_access(db, db_access)
 
 
-@component.register("io.xconn.deskconn.desktop.access.user.list", response_model=schemas.DesktopUserAccessDetailGet)
+@component.register("com.deskconn.desktop.access.user.list", response_model=schemas.DesktopUserAccessDetailGet)
 async def list_user_accesses(
     rs: schemas.DesktopAccessListRequest, details: CallDetails, db: AsyncSession = Depends(get_database)
 ):
@@ -337,7 +337,7 @@ async def list_user_accesses(
     return await desktop_backend.list_user_accesses(db, db_desktop.id)
 
 
-@component.register("io.xconn.deskconn.desktop.access.key.list")
+@component.register("com.deskconn.desktop.access.key.list")
 async def access_keys(details: CallDetails, db: AsyncSession = Depends(get_database)):
     db_desktop = await desktop_backend.get_desktop_by_authid(db, details.authid)
     if db_desktop is None:
