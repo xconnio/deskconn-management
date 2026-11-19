@@ -1,7 +1,7 @@
 from xconn import Component
 from xconn.exception import ApplicationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from xconn.types import Depends, Result
+from xconn.types import Depends, Result, CallDetails
 
 from deskconn import schemas, uris, helpers, models
 from deskconn.database.database import get_database
@@ -29,7 +29,8 @@ async def verify_cra(authid: str, realm: str, db: AsyncSession = Depends(get_dat
 
 
 @component.register("io.xconn.deskconn.account.login")
-async def login(email: str, db: AsyncSession = Depends(get_database)):
+async def login(email: str, details: CallDetails, db: AsyncSession = Depends(get_database)):
+    ensure_login_email_matches_caller(details, email)
     db_user = await user_backend.get_user_by_email(db, email)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{email}' not found")
@@ -41,7 +42,8 @@ async def login(email: str, db: AsyncSession = Depends(get_database)):
 
 
 @component.register("io.xconn.deskconn.account.login.verify", response_model=schemas.PrincipalGet)
-async def verify_login(rs: schemas.UserVerify, db: AsyncSession = Depends(get_database)):
+async def verify_login(rs: schemas.UserVerify, details: CallDetails, db: AsyncSession = Depends(get_database)):
+    ensure_login_email_matches_caller(details, rs.email)
     db_user = await user_backend.get_user_by_email(db, rs.email)
     if db_user is None:
         raise ApplicationError(uris.ERROR_USER_NOT_FOUND, f"User with email '{rs.email}' not found")
@@ -108,6 +110,12 @@ async def desktop_access(authid: str, desktop_authid: str, db: AsyncSession = De
         )
 
     return None
+
+
+def ensure_login_email_matches_caller(details: CallDetails, email: str) -> None:
+    # The login OTP flow runs on a password (CRA) session; it may only act on that account.
+    if details.authid != email:
+        raise ApplicationError(uris.ERROR_USER_NOT_AUTHORIZED, "Cannot act on another user's login")
 
 
 async def validate_user_connect_to_desktop(db: AsyncSession, authid: str, realm: str, user: models.User):

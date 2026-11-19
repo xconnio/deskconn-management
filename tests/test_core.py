@@ -72,14 +72,21 @@ async def test_login_invocation_resolves_dependencies_and_preserves_errors(monke
     session = RegistrationSession()
     await register_async(session, uri, handler)
 
-    await session.handlers[uri](Invocation(["test@example.com"], {}, {}))
+    await session.handlers[uri](Invocation(["test@example.com"], {}, {"caller_authid": "test@example.com"}))
     lookup.assert_awaited_once_with(database, "test@example.com")
     otp.assert_awaited_once_with(database, user, helpers.OTP_PURPOSE_LOGIN)
 
     lookup.return_value = None
     with pytest.raises(ApplicationError) as error:
-        await session.handlers[uri](Invocation(["missing@example.com"], {}, {}))
+        await session.handlers[uri](Invocation(["missing@example.com"], {}, {"caller_authid": "missing@example.com"}))
     assert error.value.uri == uris.ERROR_USER_NOT_FOUND
+
+    # a CRA session for one account cannot drive another account's login OTP
+    lookup.reset_mock()
+    with pytest.raises(ApplicationError) as error:
+        await session.handlers[uri](Invocation(["victim@example.com"], {}, {"caller_authid": "test@example.com"}))
+    assert error.value.uri == uris.ERROR_USER_NOT_AUTHORIZED
+    lookup.assert_not_awaited()
 
 
 @pytest.mark.asyncio
