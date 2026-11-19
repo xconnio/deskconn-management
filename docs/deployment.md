@@ -2,7 +2,7 @@
 
 DeskConn Management requires PostgreSQL and a running
 [DeskConn Hub](https://github.com/xconnio/deskconn-hub). It joins the shared
-`io.xconn.deskconn` realm as a service using CryptoSign.
+`com.deskconn` realm as a service using CryptoSign.
 
 The Docker image, Compose service, database, and several environment variables
 retain the historical `deskconn-account-service` name. These identifiers have
