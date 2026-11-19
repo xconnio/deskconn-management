@@ -19,7 +19,7 @@ load_dotenv()
 ITERATIONS = 1000
 KEY_LENGTH = 32
 
-# A user's role on the system realm (io.xconn.deskconn), by how they authenticated. On a
+# A user's role on the system realm (com.deskconn), by how they authenticated. On a
 # desktop realm they get ROLE_USER_DESKTOP instead.
 ROLE_CRA_USER = "user:cra"
 ROLE_CRYPTOSIGN_USER = "user:cryptosign"
@@ -41,7 +41,7 @@ EMAIL_FROM = "Deskconn <noreply@deskconn.com>"
 EMAIL_TEMPLATE_VERIFICATION_CODE = "deskconn-verification-code"
 EMAIL_TEMPLATE_DESKTOP_INVITE = "deskconn-desktop-invite"
 
-CLOUD_REALM = "io.xconn.deskconn"
+CLOUD_REALM = "com.deskconn"
 TOPIC_DESKTOP_DETACH = "com.deskconn.desktop.{machine_id}.detach"
 RPC_KILL_SESSION = "wamp.session.kill_by_authid"
 TOPIC_KEY_ADD = "com.deskconn.desktop.{machine_id}.key.add"

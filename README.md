@@ -30,7 +30,7 @@ flowchart LR
     M <--> DB
 ```
 
-Management connects to the Hub's shared `io.xconn.deskconn` realm using
+Management connects to the Hub's shared `com.deskconn` realm using
 CryptoSign. The Hub routes application traffic and enforces its connection and
 procedure permissions; Management provides account and access data.
 

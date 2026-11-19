@@ -140,7 +140,7 @@ def test_service_launcher_uses_cryptosign(monkeypatch):
 
     target, config = captured[0]
     assert target == "main:app"
-    assert config.realm == "io.xconn.deskconn"
+    assert config.realm == "com.deskconn"
     assert config.authmethod == "cryptosign"
     assert config.authid == "test-account-service"
     assert config.private_key == "01" * 32

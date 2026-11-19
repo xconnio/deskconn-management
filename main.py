@@ -32,7 +32,7 @@ def run():
         "main:app",
         ClientConfig(
             url=os.environ["ROUTER_URL"],
-            realm="io.xconn.deskconn",
+            realm="com.deskconn",
             authid=os.environ["DESKCONN_ACCOUNT_AUTHID"],
             authmethod="cryptosign",
             private_key=os.environ["DESKCONN_ACCOUNT_PRIVATE_KEY"],
