@@ -4,7 +4,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, exists, Sequence, delete, union_all, func
+from sqlalchemy import select, exists, Sequence, delete, union_all, func, null, DateTime
 
 from deskconn import models, schemas, helpers
 
@@ -302,6 +302,9 @@ async def cancel_desktop_invite(db: AsyncSession, invite: models.DesktopInvite) 
 
 
 async def get_desktop_access_public_keys(db: AsyncSession, desktop_id: UUID) -> list[dict[str, Any]]:
+    """Each user with access to the desktop, with their keys and role. key_expires_at maps the
+    keys that expire (login keys) to when, in Unix seconds; device and desktop keys don't."""
+    no_expiry = null().cast(DateTime(timezone=True)).label("expires_at")
     base_users = (
         select(models.DesktopUserAccess.user_id.label("user_id"), models.DesktopUserAccess.role.label("authrole"))
         .where(models.DesktopUserAccess.desktop_id == desktop_id)
@@ -310,7 +313,10 @@ async def get_desktop_access_public_keys(db: AsyncSession, desktop_id: UUID) -> 
 
     principal_query = (
         select(
-            models.User.email.label("authid"), models.Principal.public_key.label("public_key"), base_users.c.authrole
+            models.User.email.label("authid"),
+            models.Principal.public_key.label("public_key"),
+            base_users.c.authrole,
+            models.Principal.expires_at.label("expires_at"),
         )
         .join(base_users, models.Principal.user_id == base_users.c.user_id)
         .join(models.User, models.User.id == models.Principal.user_id)
@@ -318,30 +324,53 @@ async def get_desktop_access_public_keys(db: AsyncSession, desktop_id: UUID) -> 
     )
 
     device_query = (
-        select(models.User.email.label("authid"), models.Device.public_key.label("public_key"), base_users.c.authrole)
+        select(
+            models.User.email.label("authid"),
+            models.Device.public_key.label("public_key"),
+            base_users.c.authrole,
+            no_expiry,
+        )
         .join(base_users, models.Device.user_id == base_users.c.user_id)
         .join(models.User, models.User.id == models.Device.user_id)
     )
 
     desktop_query = select(
-        models.Desktop.authid.label("authid"), models.Desktop.public_key.label("public_key"), base_users.c.authrole
+        models.Desktop.authid.label("authid"),
+        models.Desktop.public_key.label("public_key"),
+        base_users.c.authrole,
+        no_expiry,
     ).join(base_users, models.Desktop.user_id == base_users.c.user_id)
 
     keys_union = union_all(principal_query, device_query, desktop_query).subquery()
 
-    stmt = select(keys_union.c.authid, keys_union.c.public_key, keys_union.c.authrole).distinct()
+    stmt = select(
+        keys_union.c.authid, keys_union.c.public_key, keys_union.c.authrole, keys_union.c.expires_at
+    ).distinct()
     result = await db.execute(stmt)
 
     desktop_authorizations: dict[str, dict] = {}
-    for authid, public_key, authrole in result.all():
+    never_expire: set[tuple[str, str]] = set()
+    for authid, public_key, authrole, expires_at in result.all():
         if authid not in desktop_authorizations:
             desktop_authorizations[authid] = {
                 "authid": authid,
                 "authorized_keys": [],
                 "authrole": authrole,
+                "key_expires_at": {},
             }
 
-        desktop_authorizations[authid]["authorized_keys"].append(public_key)
+        authorization = desktop_authorizations[authid]
+        if public_key not in authorization["authorized_keys"]:
+            authorization["authorized_keys"].append(public_key)
+        # a key that is also a device or desktop key doesn't expire; one listed twice expires last
+        if expires_at is None:
+            never_expire.add((authid, public_key))
+        else:
+            expiries = authorization["key_expires_at"]
+            expiries[public_key] = max(int(expires_at.timestamp()), expiries.get(public_key, 0))
+
+    for authid, public_key in never_expire:
+        desktop_authorizations[authid]["key_expires_at"].pop(public_key, None)
 
     return list(desktop_authorizations.values())
 
