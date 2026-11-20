@@ -212,3 +212,83 @@ def test_otp_user_lookup_locks_the_row():
     asyncio.run(user_backend.get_user_by_email(DB(), "a@b.c"))
     assert captured[0].endswith("FOR UPDATE")
     assert "FOR UPDATE" not in captured[1]
+
+
+@pytest.mark.asyncio
+async def test_desktop_access_keys_carry_login_key_expiry():
+    from datetime import datetime, timezone
+    from deskconn.database.backend import desktop as desktop_backend
+
+    expires = datetime(2027, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    later = datetime(2027, 2, 1, tzinfo=timezone.utc)
+    rows = [
+        ("owner@example.com", "login", "owner", expires),
+        ("owner@example.com", "phone", "owner", None),
+        # a key that is both a login key and a device key doesn't expire
+        ("member@example.com", "shared", "member", expires),
+        ("member@example.com", "shared", "member", None),
+        ("member@example.com", "login", "member", expires),
+        ("member@example.com", "login", "member", later),
+        ("machine-1", "desktop", "owner", None),
+    ]
+    db = SimpleNamespace(execute=AsyncMock(return_value=SimpleNamespace(all=lambda: rows)))
+
+    result = await desktop_backend.get_desktop_access_public_keys(db, None)
+    assert result == [
+        {
+            "authid": "owner@example.com",
+            "authorized_keys": ["login", "phone"],
+            "authrole": "owner",
+            "key_expires_at": {"login": int(expires.timestamp())},
+        },
+        {
+            "authid": "member@example.com",
+            "authorized_keys": ["shared", "login"],
+            "authrole": "member",
+            "key_expires_at": {"login": int(later.timestamp())},
+        },
+        {"authid": "machine-1", "authorized_keys": ["desktop"], "authrole": "owner", "key_expires_at": {}},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_new_login_key_is_announced_with_its_expiry(monkeypatch):
+    from datetime import datetime, timezone
+    from deskconn import schemas
+    from deskconn.api import principal
+
+    expires = datetime(2027, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    record = SimpleNamespace(public_key="ab" * 32, expires_at=expires)
+    monkeypatch.setattr(principal.principal_backend, "principal_exists_by_public_key", AsyncMock(return_value=False))
+    monkeypatch.setattr(principal.principal_backend, "create_principal", AsyncMock(return_value=record))
+    monkeypatch.setattr(
+        principal.desktop_backend,
+        "get_user_desktops_authid_with_authrole",
+        AsyncMock(return_value=[("machine-1", "owner")]),
+    )
+    published = []
+
+    class Publication:
+        def __init__(self, topic):
+            self.topic = topic
+
+        def args(self, *args):
+            published.append((self.topic, list(args)))
+            return self
+
+        def options(self, **_):
+            return self
+
+        async def execute(self):
+            return None
+
+    monkeypatch.setattr(principal.component, "_session", SimpleNamespace(publish=Publication))
+
+    user = SimpleNamespace(id=1, email="owner@example.com")
+    await principal.create_and_notify_principal(object(), schemas.PrincipalCreate(public_key="ab" * 32), user)
+    assert published == [
+        (
+            helpers.TOPIC_KEY_ADD.format(machine_id="machine-1"),
+            ["owner@example.com", "ab" * 32, "owner", int(expires.timestamp())],
+        )
+    ]

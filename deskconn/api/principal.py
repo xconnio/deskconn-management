@@ -27,7 +27,7 @@ async def create_and_notify_principal(
     for desktop_authid, authrole in desktop_authorizations:
         await (
             component.session.publish(helpers.TOPIC_KEY_ADD.format(machine_id=desktop_authid))
-            .args(db_user.email, principal.public_key, authrole)
+            .args(db_user.email, principal.public_key, authrole, int(principal.expires_at.timestamp()))
             .options(acknowledge=True)
             .execute()
         )
