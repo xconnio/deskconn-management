@@ -39,6 +39,11 @@ async def desktop_name_unique_for_user(db: AsyncSession, name: str, user_id: UUI
     return bool(result.scalar())
 
 
+async def list_desktop_realms(db: AsyncSession) -> list[dict[str, str]]:
+    rows = await db.execute(select(models.Desktop.realm, models.Desktop.authid).order_by(models.Desktop.realm))
+    return [{"realm": realm, "authid": authid} for realm, authid in rows]
+
+
 async def get_user_desktops(db: AsyncSession, user_id: UUID, name: str | None = None) -> Sequence[models.Desktop]:
     accessible_ids = select(models.DesktopUserAccess.desktop_id).where(models.DesktopUserAccess.user_id == user_id)
 

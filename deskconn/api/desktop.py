@@ -3,7 +3,7 @@ import uuid
 from xconn import Component
 from xconn.exception import ApplicationError
 from sqlalchemy.ext.asyncio import AsyncSession
-from xconn.types import Depends, CallDetails
+from xconn.types import Depends, CallDetails, Result
 
 from deskconn import schemas, uris, models, helpers
 from deskconn.database.database import get_database
@@ -14,6 +14,13 @@ component = Component()
 
 PROCEDURE_ADD_REALM = "com.deskconn.realm.add"
 PROCEDURE_REMOVE_REALM = "com.deskconn.realm.remove"
+
+ROUTER_AUTHROLE = "xconnio:deskconn:router"
+
+
+@component.register("com.deskconn.realm.list", allowed_roles=[ROUTER_AUTHROLE])
+async def list_realms(db: AsyncSession = Depends(get_database)) -> Result:
+    return Result(args=[await desktop_backend.list_desktop_realms(db)])
 
 
 @component.register("com.deskconn.desktop.attach", response_model=schemas.DesktopGet)
