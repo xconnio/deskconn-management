@@ -38,6 +38,14 @@ The host example defaults to a WebSocket URL; set `ROUTER_URL` explicitly to an
 endpoint enabled by your Hub. The Python client also supports RawSocket with
 `rs://`; `rss://` is not the spelling used by this transport.
 
+## Router realm inventory
+
+The private `com.deskconn.realm.list` RPC takes no arguments and returns one
+positional result containing a list of `{realm, authid}` records for attached
+machines. The router must disclose the caller's role and grant call permission
+to its internal `xconnio:deskconn:router` role. Management rejects calls from
+other roles, including calls with no disclosed role.
+
 ## Database and migrations
 
 For the local Compose database and host-run service, keep

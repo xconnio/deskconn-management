@@ -18,7 +18,7 @@ from xconn.types import Invocation
 
 from main import app
 from deskconn import helpers, uris
-from deskconn.api import auth
+from deskconn.api import auth, desktop
 
 
 def test_password_hash_preserves_existing_credentials():
@@ -50,6 +50,41 @@ async def test_all_account_procedures_register_with_core():
     assert session.handlers.keys() == app.procedures.keys()
     assert "com.deskconn.account.login.verify" in session.handlers
     assert "com.deskconn.desktop.attach" in session.handlers
+
+
+@pytest.mark.asyncio
+async def test_router_realm_inventory_requires_router_role(monkeypatch):
+    database = AsyncMock()
+    database.execute.return_value = [("realm-a", "machine-a"), ("realm-b", "machine-b")]
+
+    @asynccontextmanager
+    async def dependency():
+        yield database
+
+    uri = "com.deskconn.realm.list"
+    handler = desktop.component.procedures[uri]
+    default = inspect.signature(handler).parameters["db"].default
+    monkeypatch.setattr(default, "dependency", dependency)
+    session = RegistrationSession()
+    await register_async(session, uri, handler)
+
+    with pytest.raises(ApplicationError, match="authrole") as error:
+        await session.handlers[uri](Invocation([], {}, {}))
+    assert error.value.uri == "wamp.error.internal_error"
+    for role in ("user:cryptosign", "trusted"):
+        with pytest.raises(ApplicationError) as error:
+            await session.handlers[uri](Invocation([], {}, {"caller_authrole": role}))
+        assert error.value.uri == "wamp.error.not_authorized"
+    database.execute.assert_not_awaited()
+
+    invocation = Invocation([], {}, {"caller_authrole": desktop.ROUTER_AUTHROLE})
+    result = await session.handlers[uri](invocation)
+    assert result.args == [[{"realm": "realm-a", "authid": "machine-a"}, {"realm": "realm-b", "authid": "machine-b"}]]
+    assert list(database.execute.call_args.args[0].selected_columns.keys()) == ["realm", "authid"]
+
+    database.execute.return_value = []
+    result = await session.handlers[uri](invocation)
+    assert result.args == [[]]
 
 
 @pytest.mark.asyncio
