@@ -327,3 +327,143 @@ async def test_new_login_key_is_announced_with_its_expiry(monkeypatch):
             ["owner@example.com", "ab" * 32, "owner", int(expires.timestamp())],
         )
     ]
+
+
+def cli_login_handler(name):
+    return auth.component.procedures[f"com.deskconn.account.login.cli.{name}"]
+
+
+def test_cli_login_purpose_defaults_to_login_for_older_clis():
+    from deskconn import schemas
+
+    assert schemas.CLILoginStart(public_key="ab" * 32, hostname="laptop").purpose == "login"
+    with pytest.raises(ValueError):
+        schemas.CLILoginStart(public_key="ab" * 32, hostname="laptop", purpose="other")
+
+
+def test_user_code_is_typed_back_in_any_case():
+    code = helpers.generate_user_code()
+    assert len(code) == 9 and code[4] == "-"
+    assert helpers.normalize_user_code(f" {code.replace('-', '').lower()} ") == code
+
+
+@pytest.mark.asyncio
+async def test_cli_login_start_keeps_the_code_out_of_the_link(monkeypatch):
+    from deskconn import schemas
+
+    created = []
+
+    async def create_cli_login(_, data):
+        created.append(data)
+        return SimpleNamespace(user_code=data.user_code)
+
+    monkeypatch.setattr(auth.principal_backend, "principal_exists_by_public_key", AsyncMock(return_value=False))
+    monkeypatch.setattr(auth.cli_login_backend, "delete_expired_cli_logins", AsyncMock())
+    monkeypatch.setattr(auth.cli_login_backend, "create_cli_login", create_cli_login)
+
+    rs = schemas.CLILoginStart(public_key="ab" * 32, hostname="laptop", purpose="attach")
+    started = await cli_login_handler("start")(rs, SimpleNamespace(session_id=7), db=object())
+
+    [data] = created
+    assert data.session_id == 7 and data.public_key == "ab" * 32 and data.purpose == "attach"
+    assert data.device_code_hash == helpers.hash_device_code(started.device_code)
+    assert started.user_code == data.user_code
+    assert started.user_code not in started.verification_uri
+
+
+@pytest.mark.asyncio
+async def test_cli_login_start_rejects_a_registered_key(monkeypatch):
+    from deskconn import schemas
+
+    monkeypatch.setattr(auth.principal_backend, "principal_exists_by_public_key", AsyncMock(return_value=True))
+    rs = schemas.CLILoginStart(public_key="ab" * 32, hostname="laptop")
+    with pytest.raises(ApplicationError) as e:
+        await cli_login_handler("start")(rs, SimpleNamespace(session_id=7), db=object())
+    assert e.value.uri == uris.ERROR_PRINCIPAL_EXISTS
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("procedure", ["get", "approve", "deny"])
+async def test_cli_login_answering_needs_a_verified_user(monkeypatch, procedure):
+    user = SimpleNamespace(email="owner@example.com", is_verified=False)
+    monkeypatch.setattr(auth.user_backend, "get_user_by_email", AsyncMock(return_value=user))
+    with pytest.raises(ApplicationError) as e:
+        await cli_login_handler(procedure)("abcd-efgh", SimpleNamespace(authid=user.email), db=object())
+    assert e.value.uri == uris.ERROR_USER_NOT_VERIFIED
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status, expires_in, key_exists, answer",
+    [
+        ("pending", 60, True, {"status": "pending"}),
+        ("pending", -1, True, {"status": "expired"}),
+        ("denied", 60, True, {"status": "denied"}),
+        ("approved", 60, True, {"status": "approved", "authid": "owner@example.com"}),
+        # the key was removed between approval and this poll
+        ("approved", 60, False, {"status": "expired"}),
+    ],
+)
+async def test_cli_login_poll(monkeypatch, status, expires_in, key_exists, answer):
+    from datetime import timedelta
+    from deskconn import models
+
+    db_login = SimpleNamespace(
+        status=models.CLILoginStatus(status),
+        expires_at=helpers.utcnow() + timedelta(seconds=expires_in),
+        public_key="ab" * 32,
+        user=SimpleNamespace(email="owner@example.com"),
+    )
+    monkeypatch.setattr(auth.cli_login_backend, "get_cli_login_by_device_code", AsyncMock(return_value=db_login))
+    principal = SimpleNamespace(expires_at=None) if key_exists else None
+    monkeypatch.setattr(auth.principal_backend, "get_user_principal", AsyncMock(return_value=principal))
+
+    for _ in range(2):  # asking again, after a lost reply, gets the same answer
+        result = await cli_login_handler("poll")("device-code", db=object())
+        assert result.model_dump(exclude_none=True) == answer
+
+
+@pytest.mark.asyncio
+async def test_cli_login_unknown_device_code_is_expired(monkeypatch):
+    monkeypatch.setattr(auth.cli_login_backend, "get_cli_login_by_device_code", AsyncMock(return_value=None))
+    assert (await cli_login_handler("poll")("unknown", db=object())).status == "expired"
+
+
+@pytest.mark.asyncio
+async def test_cli_login_approve_registers_the_started_key(monkeypatch):
+    user = SimpleNamespace(id=1, email="owner@example.com", is_verified=True)
+    db_login = SimpleNamespace(public_key="ab" * 32)
+    approve = AsyncMock()
+    register = AsyncMock()
+    monkeypatch.setattr(auth.user_backend, "get_user_by_email", AsyncMock(return_value=user))
+    monkeypatch.setattr(auth.cli_login_backend, "get_pending_cli_login_by_user_code", AsyncMock(return_value=db_login))
+    monkeypatch.setattr(auth.cli_login_backend, "approve_cli_login", approve)
+    monkeypatch.setattr(auth, "create_and_notify_principal", register)
+
+    await cli_login_handler("approve")("abcd-efgh", SimpleNamespace(authid=user.email), db=object())
+
+    principal = register.await_args.args[1]
+    assert principal.public_key == "ab" * 32 and register.await_args.args[2] is user
+    assert approve.await_args.args[1:] == (db_login, user)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("answer", ["approve_cli_login", "deny_cli_login"])
+async def test_cli_login_answer_restarts_the_expiry(answer):
+    """The CLI gets a full window to collect an answer, even one given at the last moment."""
+    from deskconn.database.backend import cli_login
+
+    statements = []
+
+    class DB:
+        async def execute(self, stmt):
+            statements.append(stmt)
+
+        async def commit(self):
+            pass
+
+    args = (SimpleNamespace(id=1, email="x"),) if answer == "approve_cli_login" else ()
+    await getattr(cli_login, answer)(DB(), SimpleNamespace(id=1), *args)
+
+    [stmt] = statements
+    assert stmt.compile().params["expires_at"] > helpers.utcnow()

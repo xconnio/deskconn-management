@@ -40,6 +40,9 @@ EMAIL_FROM = "Deskconn <noreply@deskconn.com>"
 # Aliases of the Resend templates defined in deskconn/email_templates.py
 EMAIL_TEMPLATE_VERIFICATION_CODE = "deskconn-verification-code"
 EMAIL_TEMPLATE_DESKTOP_INVITE = "deskconn-desktop-invite"
+CLI_LOGIN_TTL_SECONDS = 600
+CLI_LOGIN_POLL_INTERVAL_SECONDS = 3
+CLI_LOGIN_URL = os.getenv("DESKCONN_CLI_LOGIN_URL", "https://web.deskconn.com/cli/authorize")
 
 CLOUD_REALM = "com.deskconn"
 TOPIC_DESKTOP_DETACH = "com.deskconn.desktop.{machine_id}.detach"
@@ -86,6 +89,29 @@ def generate_email_otp() -> str:
 
 def hash_otp(otp: str) -> str:
     return hashlib.sha256(otp.encode()).hexdigest()
+
+
+def cli_login_expires_at() -> datetime:
+    return utcnow() + timedelta(seconds=CLI_LOGIN_TTL_SECONDS)
+
+
+def generate_device_code() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_device_code(device_code: str) -> str:
+    return hashlib.sha256(device_code.encode()).hexdigest()
+
+
+def generate_user_code() -> str:
+    # Base32 has no 0, 1, 8 or 9, so nothing in it reads like O, I or B when compared by eye.
+    code = base64.b32encode(secrets.token_bytes(5)).decode()
+    return f"{code[:4]}-{code[4:]}"
+
+
+def normalize_user_code(user_code: str) -> str:
+    code = user_code.strip().upper().replace("-", "")
+    return f"{code[:4]}-{code[4:]}"
 
 
 def otp_expiry_time() -> datetime:

@@ -215,3 +215,49 @@ class DesktopInviteOutboxGet(DesktopInviteGet):
 
 class InviteCancel(BaseModel):
     invitation_id: UUID4
+
+
+CLILoginPurpose = Literal["login", "attach"]
+
+
+class CLILoginStart(BaseModel):
+    public_key: PublicKeyHex
+    hostname: str = Field(min_length=1, max_length=255)
+    # What the key is for, so the approval page can say: the CLI's login, or attaching a machine.
+    purpose: CLILoginPurpose = "login"
+
+
+class CLILoginCreate(CLILoginStart):
+    device_code_hash: str
+    user_code: str
+    session_id: int
+    expires_at: datetime
+
+
+class CLILoginStartGet(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    device_code: str
+    user_code: str
+    verification_uri: str
+    expires_in: int
+    interval: int
+
+
+class CLILoginGet(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    user_code: str
+    hostname: str
+    purpose: CLILoginPurpose
+
+
+CLILoginPollStatus = Literal["pending", "approved", "denied", "expired"]
+
+
+class CLILoginPoll(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    status: CLILoginPollStatus
+    authid: str | None = None
+    expires_at: DateTimeStr | None = None
