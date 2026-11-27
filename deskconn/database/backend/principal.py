@@ -52,6 +52,17 @@ async def user_owns_principal(db: AsyncSession, public_key: str, user: models.Us
     return bool(result.scalar())
 
 
+async def get_user_principal(db: AsyncSession, public_key: str, user: models.User) -> models.Principal | None:
+    stmt = (
+        select(models.Principal)
+        .where(models.Principal.public_key == public_key)
+        .where(models.Principal.user_id == user.id)
+    )
+    result = await db.execute(stmt)
+
+    return result.scalar()
+
+
 async def user_principal_exists(db: AsyncSession, public_key: str, user: models.User) -> bool:
     stmt = select(
         exists()

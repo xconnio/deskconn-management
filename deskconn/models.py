@@ -1,7 +1,19 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, Text, DateTime, Boolean, Integer, UUID, UniqueConstraint, MetaData, func
+from sqlalchemy import (
+    BigInteger,
+    Enum,
+    ForeignKey,
+    Text,
+    DateTime,
+    Boolean,
+    Integer,
+    UUID,
+    UniqueConstraint,
+    MetaData,
+    func,
+)
 from sqlalchemy.orm import relationship, declarative_base, mapped_column
 
 from deskconn import helpers
@@ -26,6 +38,12 @@ class InvitationStatus(str, enum.Enum):
     expired = "expired"
 
 
+class CLILoginStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    denied = "denied"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -48,6 +66,7 @@ class User(Base):
     devices = relationship("Device", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     desktops = relationship("Desktop", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
     principals = relationship("Principal", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
+    cli_logins = relationship("CLILogin", back_populates="user", cascade="all, delete-orphan", passive_deletes=True)
 
     desktop_user_accesses = relationship(
         "DesktopUserAccess", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
@@ -165,3 +184,30 @@ class DesktopInvite(Base):
     desktop = relationship("Desktop", back_populates="invites")
     inviter = relationship("User", foreign_keys=[inviter_id], back_populates="desktop_invites_sent")
     invitee_user = relationship("User", foreign_keys=[invitee_user_id], back_populates="desktop_invites_received")
+
+
+class CLILogin(Base):
+    """A browser login started by the CLI, until the CLI polls for its answer or it expires."""
+
+    __tablename__ = "cli_logins"
+
+    id = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # sha256 of the code only the CLI holds, so the table can't be used to poll.
+    device_code_hash = mapped_column(Text, unique=True, nullable=False)
+    user_code = mapped_column(Text, unique=True, nullable=False)
+    public_key = mapped_column(Text, nullable=False)
+    hostname = mapped_column(Text, nullable=False)
+    purpose = mapped_column(Text, nullable=False, default="login", server_default="login")
+    status = mapped_column(
+        Enum(CLILoginStatus, name="cli_login_status", schema=DESKCONN_SCHEMA),
+        nullable=False,
+        default=CLILoginStatus.pending.value,
+    )
+    expires_at = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at = mapped_column(DateTime(timezone=True), default=helpers.utcnow)
+
+    # The WAMP session that started it: one pending login per session.
+    session_id = mapped_column(BigInteger, nullable=False)
+
+    user_id = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user = relationship("User", back_populates="cli_logins", passive_deletes=True)
